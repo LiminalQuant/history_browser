@@ -25,7 +25,7 @@ st.set_page_config(page_title='History')
 st.title('Вскрываем историю браузера')
 st.subheader('Добавьте файл History (Chrome / Edge)')
 
-uploaded_file = st.file_uploader('Выберите файл history', type=['sqlite', 'db', ''])
+uploaded_file = st.file_uploader('Выберите файл history', type=['db', 'sqlite'])
 
 if uploaded_file:
     # --- сохраняем во временный файл ---
