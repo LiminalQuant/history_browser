@@ -1,6 +1,4 @@
-base64io
-pandas
-sqlite3-api
-sqlite3client
-openpyxl=
 streamlit
+pandas
+openpyxl
+
