@@ -1,6 +1,6 @@
-base64io==1.0.3
-pandas==1.5.2
-sqlite3-api==2.0.4
-sqlite3client==66.0.2
-openpyxl==3.0.10
-streamlit==1.15.2
+base64io
+pandas
+sqlite3-api
+sqlite3client
+openpyxl=
+streamlit
