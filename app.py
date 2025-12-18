@@ -1,49 +1,74 @@
 import sqlite3
 import pandas as pd
-import openpyxl
 import streamlit as st
 import base64
-from io import StringIO, BytesIO
+from io import BytesIO
+import tempfile
 import os
-def generate_excel_download_link(df4):
-    # Credit Excel: https://discuss.streamlit.io/t/how-to-add-a-download-excel-csv-function-to-a-button/4474/5
+
+def generate_excel_download_link(df):
     towrite = BytesIO()
-    df3.to_excel(towrite, encoding="utf-8", index=False, header=True)  # write to BytesIO buffer
-    towrite.seek(0)  # reset pointer
+    df.to_excel(towrite, index=False)
+    towrite.seek(0)
+
     b64 = base64.b64encode(towrite.read()).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="data_download.xlsx">Download Excel File</a>'
-    return st.markdown(href, unsafe_allow_html=True)
+    href = f'''
+    <a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}"
+       download="browser_history.xlsx">
+       Скачать Excel
+    </a>
+    '''
+    st.markdown(href, unsafe_allow_html=True)
+
 
 st.set_page_config(page_title='History')
 st.title('Вскрываем историю браузера')
-st.subheader('Добавьте ваш файл')
+st.subheader('Добавьте файл History (Chrome / Edge)')
 
+uploaded_file = st.file_uploader('Выберите файл history', type=['sqlite', 'db', ''])
 
+if uploaded_file:
+    # --- сохраняем во временный файл ---
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(uploaded_file.read())
+        tmp_path = tmp.name
 
+    try:
+        con = sqlite3.connect(tmp_path)
 
-uploaded_files = st.file_uploader('ВЫБИРИТЕ СВОЙ ФАЙЛ')
-if uploaded_files:
-    
+        query = """
+        SELECT
+            url,
+            title,
+            visit_count,
+            datetime(last_visit_time / 1000000 +
+                     (strftime('%s', '1601-01-01')),
+                     'unixepoch', 'localtime') AS visit_time
+        FROM urls
+        """
 
-    
-    con = sqlite3.connect(uploaded_files)
-    cur = con.cursor()
-    df1 = pd.read_sql("""SELECT url, title, visit_count, 
-            datetime(last_visit_time / 1000000 + (strftime('%s', '1601-01-01')), 'unixepoch', 'localtime') FROM urls""", con)
-    df2 = pd.DataFrame(df1)
-    df3 = df2.rename(columns={"datetime(last_visit_time / 1000000 + (strftime('%s', '1601-01-01')), 'unixepoch', 'localtime')": "Дата",
-                                          "url": "Адрес",
-                                          "title": "Имя запроса",
-                                          "visit_count": "Посещений страницы"
-                                          })
-    df3['Месяц'] = df3['Дата'].dt.month
-    df3['Год'] = df3['Дата'].dt.year
-        
-if st.checkbox('Сформировать файл для скачивания'):
-    df4 = st.dataframe(df3)
-                
+        df = pd.read_sql(query, con)
 
-if st.checkbox('Сформировать ссылку для скачивания'):
+    finally:
+        con.close()
+        os.remove(tmp_path)
 
-    st.subheader('СКАЧАТЬ ФАЙЛ')
-    generate_excel_download_link(df4)
+    # --- нормализация ---
+    df = df.rename(columns={
+        "visit_time": "Дата",
+        "url": "Адрес",
+        "title": "Имя запроса",
+        "visit_count": "Посещений страницы"
+    })
+
+    df["Дата"] = pd.to_datetime(df["Дата"], errors="coerce")
+    df["Месяц"] = df["Дата"].dt.month
+    df["Год"] = df["Дата"].dt.year
+
+    st.success(f"Загружено записей: {len(df)}")
+
+    if st.checkbox('Показать таблицу'):
+        st.dataframe(df)
+
+    if st.checkbox('Сформировать Excel'):
+        generate_excel_download_link(df)
